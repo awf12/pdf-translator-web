@@ -1,0 +1,22 @@
+app = "pdf-translator-web"
+primary_region = "nrt"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1
+
+[[services]]
+  internal_port = 5000
+  protocol = "tcp"
+
+  [[services.ports]]
+    handlers = ["http"]
+    port = 80
+
+  [[services.ports]]
+    handlers = ["tls", "http"]
+    port = 443
