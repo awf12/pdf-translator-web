@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF 英文翻译工具</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans SC", sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            width: 100%;
+            max-width: 640px;
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,.25);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            padding: 28px 32px;
+            text-align: center;
+        }
+        .header h1 { font-size: 24px; font-weight: 700; }
+        .header p { font-size: 14px; opacity: .85; margin-top: 6px; }
+        .body { padding: 24px 32px 32px; }
+        .section { margin-bottom: 20px; }
+        .section label {
+            display: block;
+            font-weight: 600;
+            font-size: 14px;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        .upload-area {
+            border: 2px dashed #d0d5dd;
+            border-radius: 12px;
+            padding: 32px 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color .2s, background .2s;
+            position: relative;
+        }
+        .upload-area:hover, .upload-area.drag-over {
+            border-color: #667eea;
+            background: #f5f3ff;
+        }
+        .upload-area.has-file { border-color: #22c55e; background: #f0fdf4; }
+        .upload-icon { font-size: 40px; margin-bottom: 8px; }
+        .upload-text { font-size: 15px; color: #555; }
+        .upload-hint { font-size: 12px; color: #999; margin-top: 4px; }
+        .file-name { font-size: 13px; color: #22c55e; font-weight: 600; margin-top: 8px; }
+        .upload-area input[type=file] { display: none; }
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: opacity .2s, transform .1s;
+        }
+        .btn:active { transform: scale(.98); }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+        }
+        .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+        .btn-download {
+            background: #22c55e;
+            color: #fff;
+            margin-top: 12px;
+            text-decoration: none;
+            display: block;
+            text-align: center;
+        }
+        .progress-wrap { margin-top: 16px; display: none; }
+        .progress-wrap.active { display: block; }
+        .progress-bar {
+            height: 8px;
+            background: #e5e7eb;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 4px;
+            transition: width .3s;
+            width: 0%;
+        }
+        .progress-text {
+            font-size: 13px;
+            color: #666;
+            margin-top: 6px;
+            text-align: center;
+        }
+        .result-wrap { margin-top: 16px; display: none; }
+        .result-wrap.active { display: block; }
+        .result-info {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            border-radius: 10px;
+            padding: 16px;
+            font-size: 14px;
+            color: #166534;
+        }
+        .result-error {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 10px;
+            padding: 16px;
+            font-size: 14px;
+            color: #991b1b;
+        }
+        .footer {
+            text-align: center;
+            padding: 0 32px 24px;
+            font-size: 12px;
+            color: #999;
+        }
+        @media (max-width: 480px) {
+            .body { padding: 20px 16px; }
+            .header { padding: 20px 16px; }
+            .header h1 { font-size: 20px; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>📄 PDF 英文 → 中文 翻译</h1>
+        <p>上传 PDF + 可选 Excel 词库，获取翻译版 PDF</p>
+    </div>
+    <div class="body">
+        <!-- PDF 上传 -->
+        <div class="section">
+            <label>📥 选择 PDF 文件</label>
+            <div class="upload-area" id="pdfArea" onclick="document.getElementById('pdfInput').click()">
+                <div class="upload-icon">📄</div>
+                <div class="upload-text">点击选择或拖拽 PDF 文件</div>
+                <div class="upload-hint">最大 50MB</div>
+                <div class="file-name" id="pdfName"></div>
+                <input type="file" id="pdfInput" accept=".pdf">
+            </div>
+        </div>
+
+        <!-- Excel 词库上传 -->
+        <div class="section">
+            <label>📊 Excel 词库（可选）</label>
+            <div class="upload-area" id="excelArea" onclick="document.getElementById('excelInput').click()">
+                <div class="upload-icon">📊</div>
+                <div class="upload-text">点击选择 Excel 词库文件</div>
+                <div class="upload-hint">A列英文, B列中文 — 不选则仅使用在线翻译</div>
+                <div class="file-name" id="excelName"></div>
+                <input type="file" id="excelInput" accept=".xlsx">
+            </div>
+        </div>
+
+        <!-- 翻译按钮 -->
+        <button class="btn btn-primary" id="startBtn" onclick="startTranslate()">
+            🚀 开始翻译
+        </button>
+
+        <!-- 进度条 -->
+        <div class="progress-wrap" id="progressWrap">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="progress-text" id="progressText">准备中…</div>
+        </div>
+
+        <!-- 结果 -->
+        <div class="result-wrap" id="resultWrap"></div>
+    </div>
+    <div class="footer">
+        仅翻译词库中的英文 · 保留原始排版 · 居中对齐
+    </div>
+</div>
+
+<script>
+    const pdfInput = document.getElementById('pdfInput');
+    const excelInput = document.getElementById('excelInput');
+    const pdfArea = document.getElementById('pdfArea');
+    const excelArea = document.getElementById('excelArea');
+    const pdfName = document.getElementById('pdfName');
+    const excelName = document.getElementById('excelName');
+    const startBtn = document.getElementById('startBtn');
+    const progressWrap = document.getElementById('progressWrap');
+    const progressFill = document.getElementById('progressFill');
+    const progressText = document.getElementById('progressText');
+    const resultWrap = document.getElementById('resultWrap');
+
+    // 拖拽支持
+    function setupDrag(area, input, nameEl) {
+        area.addEventListener('dragover', e => { e.preventDefault(); area.classList.add('drag-over'); });
+        area.addEventListener('dragleave', () => area.classList.remove('drag-over'));
+        area.addEventListener('drop', e => {
+            e.preventDefault();
+            area.classList.remove('drag-over');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                input.files = files;
+                updateFile(input, nameEl, area);
+            }
+        });
+    }
+    setupDrag(pdfArea, pdfInput, pdfName);
+    setupDrag(excelArea, excelInput, excelName);
+
+    function updateFile(input, nameEl, area) {
+        if (input.files.length > 0) {
+            nameEl.textContent = '✅ ' + input.files[0].name;
+            area.classList.add('has-file');
+        } else {
+            nameEl.textContent = '';
+            area.classList.remove('has-file');
+        }
+    }
+
+    pdfInput.addEventListener('change', () => updateFile(pdfInput, pdfName, pdfArea));
+    excelInput.addEventListener('change', () => updateFile(excelInput, excelName, excelArea));
+
+    async function startTranslate() {
+        if (!pdfInput.files[0]) {
+            alert('请先选择 PDF 文件');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('pdf', pdfInput.files[0]);
+        if (excelInput.files[0]) {
+            formData.append('excel', excelInput.files[0]);
+        }
+
+        startBtn.disabled = true;
+        startBtn.textContent = '⏳ 处理中…';
+        progressWrap.classList.add('active');
+        resultWrap.classList.remove('active');
+        resultWrap.innerHTML = '';
+        progressFill.style.width = '0%';
+        progressText.textContent = '上传中…';
+
+        try {
+            const resp = await fetch('/api/translate', {
+                method: 'POST',
+                body: formData,
+            });
+            const data = await resp.json();
+
+            if (!resp.ok) {
+                throw new Error(data.error || '服务器错误');
+            }
+
+            // 轮询进度
+            if (data.task_id) {
+                pollProgress(data.task_id);
+            } else if (data.status === 'done') {
+                showResult(data);
+            }
+        } catch (e) {
+            resultWrap.innerHTML = `<div class="result-error">❌ ${e.message}</div>`;
+            resultWrap.classList.add('active');
+            resetBtn();
+        }
+    }
+
+    async function pollProgress(taskId) {
+        try {
+            const resp = await fetch('/api/status/' + taskId);
+            const data = await resp.json();
+
+            if (data.status === 'done') {
+                progressFill.style.width = '100%';
+                progressText.textContent = '✅ 完成！';
+                showResult(data);
+                return;
+            }
+            if (data.status === 'error') {
+                throw new Error(data.error || '翻译失败');
+            }
+
+            const pct = data.progress || 0;
+            progressFill.style.width = pct + '%';
+            progressText.textContent = `翻译中 ${pct}%（共 ${data.total} 页）…`;
+            setTimeout(() => pollProgress(taskId), 500);
+        } catch (e) {
+            resultWrap.innerHTML = `<div class="result-error">❌ ${e.message}</div>`;
+            resultWrap.classList.add('active');
+            resetBtn();
+        }
+    }
+
+    function showResult(data) {
+        let html = '<div class="result-info">';
+        html += '<strong>✅ 翻译完成！</strong><br>';
+        if (data.dict_count) {
+            html += `词库条目：${data.dict_count} 条 | 命中：${data.matched || 0} 处<br>`;
+        }
+        html += `</div>`;
+        html += `<a class="btn btn-download" href="${data.download_url}">⬇ 下载翻译后的 PDF</a>`;
+        resultWrap.innerHTML = html;
+        resultWrap.classList.add('active');
+        resetBtn();
+    }
+
+    function resetBtn() {
+        startBtn.disabled = false;
+        startBtn.textContent = '🚀 开始翻译';
+    }
+</script>
+</body>
+</html>
