@@ -4,11 +4,5 @@ services:
     env: python
     region: oregon
     plan: free
-    buildCommand: |
-      pip install -r requirements.txt
-      # Download CJK font for Chinese text rendering
-      mkdir -p fonts
-      wget -q "https://github.com/googlefonts/noto-cjk/releases/download/Sans2.004/03_NotoSansCJKsc.zip" -O /tmp/noto.zip || true
-      # If wget fails, try a simple OTF download
-      wget -q "https://raw.githubusercontent.com/notofonts/noto-cjk/main/Sans/OTF/SimplifiedChinese/NotoSansSC-Regular.otf" -O fonts/NotoSansSC-Regular.otf || true
+    buildCommand: pip install -r requirements.txt
     startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --timeout 300
