@@ -7,67 +7,54 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans SC", sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                         "Helvetica Neue", Arial, "Noto Sans SC", sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
+            min-height: 100vh; padding: 20px;
+            display: flex; justify-content: center; align-items: flex-start;
         }
         .container {
-            width: 100%;
-            max-width: 640px;
-            background: #fff;
-            border-radius: 16px;
-            box-shadow: 0 20px 60px rgba(0,0,0,.25);
-            overflow: hidden;
+            width: 100%; max-width: 680px; background: #fff;
+            border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,.25);
+            overflow: hidden; margin-top: 20px;
         }
         .header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: #fff;
-            padding: 28px 32px;
-            text-align: center;
+            color: #fff; padding: 28px 32px; text-align: center;
         }
         .header h1 { font-size: 24px; font-weight: 700; }
         .header p { font-size: 14px; opacity: .85; margin-top: 6px; }
         .body { padding: 24px 32px 32px; }
-        .section { margin-bottom: 20px; }
+        .section { margin-bottom: 18px; }
         .section label {
-            display: block;
-            font-weight: 600;
-            font-size: 14px;
-            color: #333;
-            margin-bottom: 8px;
+            display: block; font-weight: 600; font-size: 14px;
+            color: #333; margin-bottom: 8px;
         }
         .upload-area {
-            border: 2px dashed #d0d5dd;
-            border-radius: 12px;
-            padding: 32px 24px;
-            text-align: center;
-            cursor: pointer;
+            border: 2px dashed #d0d5dd; border-radius: 12px;
+            padding: 28px 20px; text-align: center; cursor: pointer;
             transition: border-color .2s, background .2s;
-            position: relative;
         }
         .upload-area:hover, .upload-area.drag-over {
-            border-color: #667eea;
-            background: #f5f3ff;
+            border-color: #667eea; background: #f5f3ff;
         }
-        .upload-area.has-file { border-color: #22c55e; background: #f0fdf4; }
-        .upload-icon { font-size: 40px; margin-bottom: 8px; }
-        .upload-text { font-size: 15px; color: #555; }
+        .upload-icon { font-size: 36px; margin-bottom: 6px; }
+        .upload-text { font-size: 14px; color: #555; }
         .upload-hint { font-size: 12px; color: #999; margin-top: 4px; }
-        .file-name { font-size: 13px; color: #22c55e; font-weight: 600; margin-top: 8px; }
         .upload-area input[type=file] { display: none; }
+        .file-list {
+            margin-top: 10px; max-height: 150px; overflow-y: auto;
+            font-size: 12px; color: #555;
+        }
+        .file-list .item {
+            background: #f0fdf4; border: 1px solid #bbf7d0;
+            border-radius: 6px; padding: 4px 10px; margin: 3px 0;
+            display: flex; justify-content: space-between;
+        }
         .btn {
-            display: block;
-            width: 100%;
-            padding: 14px;
-            border: none;
-            border-radius: 10px;
-            font-size: 16px;
-            font-weight: 700;
-            cursor: pointer;
+            display: block; width: 100%; padding: 14px;
+            border: none; border-radius: 10px;
+            font-size: 16px; font-weight: 700; cursor: pointer;
             transition: opacity .2s, transform .1s;
         }
         .btn:active { transform: scale(.98); }
@@ -77,62 +64,42 @@
         }
         .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
         .btn-download {
-            background: #22c55e;
-            color: #fff;
-            margin-top: 12px;
-            text-decoration: none;
-            display: block;
-            text-align: center;
+            background: #22c55e; color: #fff; margin-top: 8px;
+            text-decoration: none; text-align: center; display: block;
         }
+        .btn-zip { background: #6366f1; }
         .progress-wrap { margin-top: 16px; display: none; }
         .progress-wrap.active { display: block; }
         .progress-bar {
-            height: 8px;
-            background: #e5e7eb;
-            border-radius: 4px;
-            overflow: hidden;
+            height: 8px; background: #e5e7eb;
+            border-radius: 4px; overflow: hidden;
         }
         .progress-fill {
             height: 100%;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 4px;
-            transition: width .3s;
-            width: 0%;
+            border-radius: 4px; transition: width .3s; width: 0%;
         }
         .progress-text {
-            font-size: 13px;
-            color: #666;
-            margin-top: 6px;
-            text-align: center;
+            font-size: 13px; color: #666; margin-top: 6px; text-align: center;
         }
         .result-wrap { margin-top: 16px; display: none; }
         .result-wrap.active { display: block; }
         .result-info {
-            background: #f0fdf4;
-            border: 1px solid #bbf7d0;
-            border-radius: 10px;
-            padding: 16px;
-            font-size: 14px;
-            color: #166534;
+            background: #f0fdf4; border: 1px solid #bbf7d0;
+            border-radius: 10px; padding: 16px; font-size: 14px; color: #166534;
         }
         .result-error {
-            background: #fef2f2;
-            border: 1px solid #fecaca;
-            border-radius: 10px;
-            padding: 16px;
-            font-size: 14px;
-            color: #991b1b;
+            background: #fef2f2; border: 1px solid #fecaca;
+            border-radius: 10px; padding: 16px; font-size: 14px; color: #991b1b;
+        }
+        .result-files { margin-top: 8px; }
+        .result-files a {
+            display: block; padding: 6px 0; color: #166534;
+            text-decoration: underline; font-size: 13px;
         }
         .footer {
-            text-align: center;
-            padding: 0 32px 24px;
-            font-size: 12px;
-            color: #999;
-        }
-        @media (max-width: 480px) {
-            .body { padding: 20px 16px; }
-            .header { padding: 20px 16px; }
-            .header h1 { font-size: 20px; }
+            text-align: center; padding: 0 32px 24px;
+            font-size: 12px; color: #999;
         }
     </style>
 </head>
@@ -140,31 +107,31 @@
 <div class="container">
     <div class="header">
         <h1>📄 PDF 英文 → 中文 翻译</h1>
-        <p>上传 PDF + 可选 Excel 词库，获取翻译版 PDF</p>
+        <p>支持批量上传 · 保留原始排版 · 词库优先匹配</p>
     </div>
     <div class="body">
         <!-- PDF 上传 -->
         <div class="section">
-            <label>📥 选择 PDF 文件</label>
+            <label>📥 选择 PDF 文件（可多选）</label>
             <div class="upload-area" id="pdfArea" onclick="document.getElementById('pdfInput').click()">
                 <div class="upload-icon">📄</div>
                 <div class="upload-text">点击选择或拖拽 PDF 文件</div>
-                <div class="upload-hint">最大 50MB</div>
-                <div class="file-name" id="pdfName"></div>
-                <input type="file" id="pdfInput" accept=".pdf">
+                <div class="upload-hint">支持同时选多个 · 每个最大 50MB</div>
+                <input type="file" id="pdfInput" accept=".pdf" multiple>
             </div>
+            <div class="file-list" id="fileList"></div>
         </div>
 
-        <!-- Excel 词库上传 -->
+        <!-- Excel 词库 -->
         <div class="section">
             <label>📊 Excel 词库（可选）</label>
             <div class="upload-area" id="excelArea" onclick="document.getElementById('excelInput').click()">
                 <div class="upload-icon">📊</div>
                 <div class="upload-text">点击选择 Excel 词库文件</div>
-                <div class="upload-hint">A列英文, B列中文 — 不选则仅使用在线翻译</div>
-                <div class="file-name" id="excelName"></div>
+                <div class="upload-hint">A列英文, B列中文</div>
                 <input type="file" id="excelInput" accept=".xlsx">
             </div>
+            <div id="excelName" style="font-size:13px;color:#22c55e;margin-top:6px;"></div>
         </div>
 
         <!-- 翻译按钮 -->
@@ -184,7 +151,7 @@
         <div class="result-wrap" id="resultWrap"></div>
     </div>
     <div class="footer">
-        仅翻译词库中的英文 · 保留原始排版 · 居中对齐
+        输出文件名格式: XXX_中文.pdf
     </div>
 </div>
 
@@ -192,9 +159,7 @@
     const pdfInput = document.getElementById('pdfInput');
     const excelInput = document.getElementById('excelInput');
     const pdfArea = document.getElementById('pdfArea');
-    const excelArea = document.getElementById('excelArea');
-    const pdfName = document.getElementById('pdfName');
-    const excelName = document.getElementById('excelName');
+    const fileList = document.getElementById('fileList');
     const startBtn = document.getElementById('startBtn');
     const progressWrap = document.getElementById('progressWrap');
     const progressFill = document.getElementById('progressFill');
@@ -202,43 +167,46 @@
     const resultWrap = document.getElementById('resultWrap');
 
     // 拖拽支持
-    function setupDrag(area, input, nameEl) {
-        area.addEventListener('dragover', e => { e.preventDefault(); area.classList.add('drag-over'); });
-        area.addEventListener('dragleave', () => area.classList.remove('drag-over'));
-        area.addEventListener('drop', e => {
-            e.preventDefault();
-            area.classList.remove('drag-over');
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                input.files = files;
-                updateFile(input, nameEl, area);
-            }
-        });
-    }
-    setupDrag(pdfArea, pdfInput, pdfName);
-    setupDrag(excelArea, excelInput, excelName);
-
-    function updateFile(input, nameEl, area) {
-        if (input.files.length > 0) {
-            nameEl.textContent = '✅ ' + input.files[0].name;
-            area.classList.add('has-file');
-        } else {
-            nameEl.textContent = '';
-            area.classList.remove('has-file');
+    pdfArea.addEventListener('dragover', e => { e.preventDefault(); pdfArea.classList.add('drag-over'); });
+    pdfArea.addEventListener('dragleave', () => pdfArea.classList.remove('drag-over'));
+    pdfArea.addEventListener('drop', e => {
+        e.preventDefault();
+        pdfArea.classList.remove('drag-over');
+        if (e.dataTransfer.files.length > 0) {
+            pdfInput.files = e.dataTransfer.files;
+            showFileList();
         }
-    }
+    });
 
-    pdfInput.addEventListener('change', () => updateFile(pdfInput, pdfName, pdfArea));
-    excelInput.addEventListener('change', () => updateFile(excelInput, excelName, excelArea));
+    pdfInput.addEventListener('change', showFileList);
+    excelInput.addEventListener('change', () => {
+        document.getElementById('excelName').textContent =
+            excelInput.files.length > 0 ? '✅ ' + excelInput.files[0].name : '';
+    });
+
+    function showFileList() {
+        const files = pdfInput.files;
+        if (files.length === 0) { fileList.innerHTML = ''; return; }
+        let html = '';
+        for (let i = 0; i < files.length; i++) {
+            html += `<div class="item">
+                <span>📄 ${files[i].name}</span>
+                <span>→ ${files[i].name.replace('.pdf','')}_中文.pdf</span>
+            </div>`;
+        }
+        fileList.innerHTML = html;
+        startBtn.textContent = `🚀 开始翻译（${files.length} 个文件）`;
+    }
 
     async function startTranslate() {
-        if (!pdfInput.files[0]) {
-            alert('请先选择 PDF 文件');
-            return;
+        if (!pdfInput.files || pdfInput.files.length === 0) {
+            alert('请先选择 PDF 文件'); return;
         }
 
         const formData = new FormData();
-        formData.append('pdf', pdfInput.files[0]);
+        for (let i = 0; i < pdfInput.files.length; i++) {
+            formData.append('pdfs', pdfInput.files[i]);
+        }
         if (excelInput.files[0]) {
             formData.append('excel', excelInput.files[0]);
         }
@@ -252,71 +220,98 @@
         progressText.textContent = '上传中…';
 
         try {
-            const resp = await fetch('/api/translate', {
-                method: 'POST',
-                body: formData,
-            });
+            const resp = await fetch('/api/translate', { method: 'POST', body: formData });
             const data = await resp.json();
-
-            if (!resp.ok) {
-                throw new Error(data.error || '服务器错误');
-            }
+            if (!resp.ok) throw new Error(data.error || '服务器错误');
 
             // 轮询进度
-            if (data.task_id) {
-                pollProgress(data.task_id);
-            } else if (data.status === 'done') {
-                showResult(data);
-            }
+            pollProgress(data);
         } catch (e) {
-            resultWrap.innerHTML = `<div class="result-error">❌ ${e.message}</div>`;
-            resultWrap.classList.add('active');
-            resetBtn();
+            showError(e.message);
         }
     }
 
-    async function pollProgress(taskId) {
-        try {
-            const resp = await fetch('/api/status/' + taskId);
-            const data = await resp.json();
-
-            if (data.status === 'done') {
-                progressFill.style.width = '100%';
-                progressText.textContent = '✅ 完成！';
-                showResult(data);
-                return;
-            }
-            if (data.status === 'error') {
-                throw new Error(data.error || '翻译失败');
-            }
-
-            const pct = data.progress || 0;
-            progressFill.style.width = pct + '%';
-            progressText.textContent = `翻译中 ${pct}%（共 ${data.total} 页）…`;
-            setTimeout(() => pollProgress(taskId), 500);
-        } catch (e) {
-            resultWrap.innerHTML = `<div class="result-error">❌ ${e.message}</div>`;
-            resultWrap.classList.add('active');
-            resetBtn();
+    async function pollProgress(data) {
+        if (data.status === 'done') {
+            progressFill.style.width = '100%';
+            progressText.textContent = '✅ 完成！';
+            showResult(data);
+            return;
         }
+        if (data.status === 'error') {
+            throw new Error(data.error || '翻译失败');
+        }
+
+        const pct = data.progress || 0;
+        progressFill.style.width = pct + '%';
+        progressText.textContent = data.current_file || `翻译中 ${pct}%…`;
+
+        // 从 status API 获取更新
+        if (data.files) {
+            // 直接来自 translate 的响应，有文件信息就用
+        }
+
+        setTimeout(async () => {
+            try {
+                // 尝试从当前 data 获取 task_id
+                const statusUrl = `/api/status/${getTaskId(data)}`;
+                const r = await fetch(statusUrl);
+                const d = await r.json();
+                if (Object.keys(d).length > 0) pollProgress(d);
+                else pollProgress(data); // keep trying with progress
+            } catch {
+                pollProgress(data);
+            }
+        }, 800);
+    }
+
+    function getTaskId(data) {
+        // 提取 task_id: 从 download_zip URL 或 files URL
+        const zip = data.download_zip || '';
+        const m = zip.match(/\/download-zip\/(\w+)/);
+        if (m) return m[1];
+        if (data.files && data.files.length > 0) {
+            const m2 = data.files[0].download_url.match(/\/download-file\/(\w+)\//);
+            if (m2) return m2[1];
+        }
+        return '';
     }
 
     function showResult(data) {
         let html = '<div class="result-info">';
-        html += '<strong>✅ 翻译完成！</strong><br>';
-        if (data.dict_count) {
-            html += `词库条目：${data.dict_count} 条 | 命中：${data.matched || 0} 处<br>`;
+        html += `<strong>✅ 翻译完成！</strong><br>`;
+        html += `文件数：${data.total} | 词库：${data.dict_count || 0} 条 | 命中：${data.matched || 0} 处`;
+
+        if (data.files && data.files.length > 0) {
+            html += '<div class="result-files">';
+            for (const f of data.files) {
+                html += `<a href="${f.download_url}" download>⬇ ${f.name}</a>`;
+            }
+            html += '</div>';
         }
-        html += `</div>`;
-        html += `<a class="btn btn-download" href="${data.download_url}">⬇ 下载翻译后的 PDF</a>`;
+
+        html += '</div>';
+
+        // 批量下载 zip 按钮
+        if (data.download_zip) {
+            html += `<a class="btn btn-download btn-zip" href="${data.download_zip}">📦 一键下载全部（ZIP）</a>`;
+        }
+
         resultWrap.innerHTML = html;
+        resultWrap.classList.add('active');
+        resetBtn();
+    }
+
+    function showError(msg) {
+        resultWrap.innerHTML = `<div class="result-error">❌ ${msg}</div>`;
         resultWrap.classList.add('active');
         resetBtn();
     }
 
     function resetBtn() {
         startBtn.disabled = false;
-        startBtn.textContent = '🚀 开始翻译';
+        const n = pdfInput.files ? pdfInput.files.length : 0;
+        startBtn.textContent = n > 0 ? `🚀 开始翻译（${n} 个文件）` : '🚀 开始翻译';
     }
 </script>
 </body>
