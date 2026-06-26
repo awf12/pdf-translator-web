@@ -1,11 +1,12 @@
 """
 PDF 英文→中文 翻译工具 - Web版
-Flask 后端服务
+Flask 后端服务 - 支持批量处理
 """
 import os
 import re
 import uuid
-import shutil
+import zipfile
+import io
 import traceback
 from pathlib import Path
 from datetime import datetime
@@ -22,13 +23,12 @@ import openpyxl
 # 配置
 # ============================================================
 app = Flask(__name__)
-app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB
+app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB
 UPLOAD_DIR = Path('/tmp/pdf_translator_uploads')
 OUTPUT_DIR = Path('/tmp/pdf_translator_outputs')
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-# 任务状态存储
 tasks = {}
 tasks_lock = Lock()
 
@@ -36,27 +36,19 @@ tasks_lock = Lock()
 # 字体配置
 # ============================================================
 _CJK_FONT_FILES = [
-    # Windows
     "C:/Windows/Fonts/simsun.ttc",
     "C:/Windows/Fonts/simhei.ttf",
-    "C:/Windows/Fonts/simkai.ttf",
     "C:/Windows/Fonts/msyh.ttc",
     "C:/Windows/Fonts/msyhbd.ttc",
-    # Linux (Render.com / Ubuntu)
     "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
     "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
-    "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
     "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
     "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
-    "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
     "/usr/share/fonts/opentype/noto/NotoSansSC-Regular.otf",
-    # macOS
     "/System/Library/Fonts/STHeiti Light.ttc",
-    "/System/Library/Fonts/STHeiti Medium.ttc",
     "/System/Library/Fonts/PingFang.ttc",
     "/Library/Fonts/Arial Unicode.ttf",
 ]
-
 _cjk_font_cache = None
 
 
@@ -179,7 +171,6 @@ class PDFTranslator:
                             + (s["bbox"][2] + (sx[i+1]["bbox"][0] if i < len(sx)-1 else s["bbox"][2]))/2
                         ) / 2
 
-                # 整行匹配
                 full_text = " ".join(s["text"] for s in line_spans)
                 translated = self.dictionary.translate(full_text)
 
@@ -188,9 +179,7 @@ class PDFTranslator:
                     t2 = self.dictionary.translate(joined)
                     if t2 != joined:
                         translated = t2
-                        full_text = joined
 
-                # 逐个 span
                 if translated == full_text and len(line_spans) > 1:
                     for s in line_spans:
                         st = self.dictionary.translate(s["text"])
@@ -224,7 +213,6 @@ class PDFTranslator:
                             self._add_redact(page, fitz.Rect(*s["bbox"]))
                             replaced_spans.append(s)
 
-        # 对齐中心聚类 (单span)
         lone = [s for s in replaced_spans if "cell_center" not in s]
         if lone:
             clusters = []
@@ -252,21 +240,17 @@ class PDFTranslator:
     def _replace_text(self, page, span_data, fontfile):
         x0, y0, x1, y1 = span_data["bbox"]
         translated = span_data["translated"].strip()
-        original_text = span_data["text"].strip()
-
-        if not translated or translated == original_text:
+        orig_text = span_data["text"].strip()
+        if not translated or translated == orig_text:
             return
 
         original_size = span_data["size"]
         color = span_data["color"]
         center = span_data.get("cell_center") or ((x0 + x1) / 2)
-        span_w = x1 - x0
-        page_w = page.rect.width
-
-        # 自适应字号
+        span_w, page_w = x1 - x0, page.rect.width
         font_size = original_size
-        MIN_FONT = 4.0
-        while font_size > MIN_FONT:
+
+        while font_size > 4.0:
             est_w = len(translated) * font_size
             nx0 = center - est_w / 2
             if nx0 < 10 or (nx0 + est_w) > page_w - 10 or est_w > span_w * 1.5:
@@ -276,7 +260,6 @@ class PDFTranslator:
 
         est_w = len(translated) * font_size
         new_x0 = max(10, min(center - est_w / 2, page_w - est_w - 10))
-
         kw = dict(fontname="china-ss", fontsize=font_size, color=color)
         if fontfile:
             kw["fontfile"] = fontfile
@@ -317,66 +300,98 @@ def index():
 
 @app.route('/api/translate', methods=['POST'])
 def api_translate():
-    """上传文件并开始翻译"""
-    pdf_file = request.files.get('pdf')
-    excel_file = request.files.get('excel')
+    """批量翻译：支持单文件或多文件上传"""
+    pdf_files = request.files.getlist('pdfs')
+    # 兼容旧版单文件字段名
+    if not pdf_files:
+        pf = request.files.get('pdf')
+        if pf and pf.filename.endswith('.pdf'):
+            pdf_files = [pf]
 
-    if not pdf_file or not pdf_file.filename.endswith('.pdf'):
+    if not pdf_files:
         return jsonify({'error': '请上传 PDF 文件'}), 400
 
+    excel_file = request.files.get('excel')
     task_id = str(uuid.uuid4())[:8]
     task_dir = UPLOAD_DIR / task_id
     task_dir.mkdir(parents=True, exist_ok=True)
+    out_dir = OUTPUT_DIR / task_id
+    out_dir.mkdir(parents=True, exist_ok=True)
 
-    # 保存文件
-    pdf_path = task_dir / 'input.pdf'
-    pdf_file.save(str(pdf_path))
-
+    # 加载词库
     excel_path = None
+    dict_count = 0
     if excel_file and excel_file.filename.endswith('.xlsx'):
         excel_path = task_dir / 'dictionary.xlsx'
         excel_file.save(str(excel_path))
 
-    output_path = OUTPUT_DIR / f'{task_id}_translated.pdf'
+    translator = PDFTranslator()
+    if excel_path:
+        dict_count = translator.load_dictionary(str(excel_path))
 
-    # 记录任务
+    # 保存所有 PDF
+    pdf_info = []
+    for i, pf in enumerate(pdf_files):
+        if not pf.filename.endswith('.pdf'):
+            continue
+        stem = Path(pf.filename).stem
+        saved = task_dir / f'{i}_{pf.filename}'
+        pf.save(str(saved))
+        pdf_info.append({
+            'index': i,
+            'original_name': pf.filename,
+            'stem': stem,
+            'saved_path': str(saved),
+            'output_name': f'{stem}_中文.pdf',
+            'output_path': str(out_dir / f'{stem}_中文.pdf'),
+        })
+
+    if not pdf_info:
+        return jsonify({'error': '没有有效的 PDF 文件'}), 400
+
+    total_files = len(pdf_info)
+    total_matched = 0
+
     with tasks_lock:
         tasks[task_id] = {
-            'status': 'processing',
-            'progress': 0,
-            'total': 1,
-            'created': datetime.now().isoformat(),
+            'status': 'processing', 'progress': 0,
+            'total': total_files, 'files': [],
+            'current_file': '', 'created': datetime.now().isoformat(),
         }
 
-    # 同步处理（小文件）
     try:
-        translator = PDFTranslator()
-        dict_count = 0
-        if excel_path:
-            dict_count = translator.load_dictionary(str(excel_path))
+        for fi, info in enumerate(pdf_info):
+            def progress_cb(current, total):
+                pct = int(current / total * 100) if total > 0 else 0
+                overall = int((fi / total_files) * 100 + pct / total_files)
+                with tasks_lock:
+                    if task_id in tasks:
+                        tasks[task_id]['progress'] = overall
+                        tasks[task_id]['current_file'] = f'[{fi+1}/{total_files}] {info["original_name"]}'
 
-        def progress_cb(current, total):
-            pct = int(current / total * 100) if total > 0 else 0
+            translator._found_words = set()
+            translator.translate_pdf(info['saved_path'], info['output_path'], progress_cb)
+            m = len(translator._found_words)
+            total_matched += m
+
             with tasks_lock:
                 if task_id in tasks:
-                    tasks[task_id]['progress'] = pct
-                    tasks[task_id]['total'] = total
+                    tasks[task_id]['files'].append({
+                        'name': info['output_name'],
+                        'download_url': f'/api/download-file/{task_id}/{info["output_name"]}',
+                        'matched': m,
+                    })
 
-        translator.translate_pdf(str(pdf_path), str(output_path), progress_cb)
-
-        stat = {
-            'status': 'done',
-            'progress': 100,
-            'total': 1,
-            'download_url': f'/api/download/{task_id}',
-            'filename': f'{pdf_path.stem}_中文翻译.pdf',
-            'dict_count': dict_count,
-            'matched': len(translator._found_words),
+        result = {
+            'status': 'done', 'progress': 100,
+            'total': total_files, 'files': [],
+            'download_zip': f'/api/download-zip/{task_id}',
+            'dict_count': dict_count, 'matched': total_matched,
         }
         with tasks_lock:
-            tasks[task_id] = stat
-        stat['task_id'] = task_id
-        return jsonify(stat)
+            result['files'] = tasks[task_id].get('files', [])
+            tasks[task_id] = {**tasks[task_id], **result}
+        return jsonify(result)
 
     except Exception as e:
         with tasks_lock:
@@ -387,21 +402,31 @@ def api_translate():
 @app.route('/api/status/<task_id>')
 def api_status(task_id):
     with tasks_lock:
-        task = tasks.get(task_id, {})
-    return jsonify(task)
+        return jsonify(tasks.get(task_id, {}))
 
 
-@app.route('/api/download/<task_id>')
-def api_download(task_id):
-    output_path = OUTPUT_DIR / f'{task_id}_translated.pdf'
-    if not output_path.exists():
+@app.route('/api/download-zip/<task_id>')
+def api_download_zip(task_id):
+    out_dir = OUTPUT_DIR / task_id
+    if not out_dir.exists():
         return jsonify({'error': '文件不存在或已过期'}), 404
-    return send_file(
-        str(output_path),
-        as_attachment=True,
-        download_name=f'translated_{task_id}.pdf',
-        mimetype='application/pdf'
-    )
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for f in sorted(out_dir.glob('*.pdf')):
+            zf.write(str(f), f.name)
+    buf.seek(0)
+    return send_file(buf, as_attachment=True,
+                     download_name=f'pdf_translated_{task_id}.zip',
+                     mimetype='application/zip')
+
+
+@app.route('/api/download-file/<task_id>/<path:filename>')
+def api_download_file(task_id, filename):
+    fp = OUTPUT_DIR / task_id / filename
+    if not fp.exists():
+        return jsonify({'error': '文件不存在'}), 404
+    return send_file(str(fp), as_attachment=True,
+                     download_name=filename, mimetype='application/pdf')
 
 
 # ============================================================
